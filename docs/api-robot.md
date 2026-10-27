@@ -33,11 +33,13 @@ Lo que el robot necesita saber. Se descarga al arrancar, cada 10 minutos y antes
   "mensajes_pendientes": [{"id": "", "autor_id": "", "autor_nombre": "", "tipo": "audio|reto|texto",
                            "texto": "", "audio_url": "", "fecha": ""}],
   "visitas": [{"familiar_nombre": "", "fecha": "", "tipo": "", "mensaje": ""}],
+  "pautas": [{"id": "", "tipo": "ejercicio|rutina|comida|cita|indicacion", "titulo": "", "detalle": "",
+              "horas": ["18:00"], "dias": [], "fecha": ""}],
   "ajustes": {"volumen": 0.9, "horario_descanso": "22:30-08:30"}
 }
 ```
 
-`dias` usa "lun", "mar", "mie", "jue", "vie", "sab", "dom" (el robot también acepta 0 a 6, con 0 = lunes); vacío significa todos los días. `telefono` es el número de WhatsApp del familiar, para que en el futuro Nimea pueda llamarle desde el Android de la peana. Opcional en `persona`: `trato` ("tú" o "usted").
+`dias` usa "lun", "mar", "mie", "jue", "vie", "sab", "dom" (el robot también acepta 0 a 6, con 0 = lunes); vacío significa todos los días. `telefono` es el número de WhatsApp del familiar, para que en el futuro Nimea pueda llamarle desde el Android de la peana. `pautas` son ejercicios, rutinas, comidas y citas que la familia le dicta a la Nimea de la app: el robot las propone a su hora (una vez, en los 30 minutos siguientes) y, si llevan `fecha`, solo ese día. `mensajes_pendientes` puede venir vacío: el contacto con la familia va por WhatsApp. Opcional en `persona`: `trato` ("tú" o "usted").
 
 ## Envíos del robot
 

@@ -51,3 +51,23 @@ def test_dias_como_en_la_app(contexto):
     assert Agenda().tomas_pendientes(contexto, datetime(2026, 10, 27, 9, 5))
     contexto.medicacion[0]["dias"] = ["lun", "mie"]
     assert not Agenda().tomas_pendientes(contexto, datetime(2026, 10, 27, 9, 5))
+
+
+def test_pauta_de_la_familia_se_propone_una_vez(contexto):
+    contexto.mensajes_pendientes = []
+    contexto.medicacion = []
+    contexto.pautas = [{"id": "p1", "tipo": "ejercicio", "titulo": "el paseo", "horas": ["18:00"],
+                        "dias": ["mar"], "fecha": ""}]
+    agenda = Agenda()
+    motivo = agenda.siguiente(contexto, datetime(2026, 10, 27, 18, 10))
+    assert motivo.tipo == "pauta" and motivo.pautas[0]["id"] == "p1"
+    assert agenda.siguiente(contexto, datetime(2026, 10, 27, 18, 20)) is None
+
+
+def test_cita_solo_el_dia_que_toca(contexto):
+    contexto.mensajes_pendientes = []
+    contexto.medicacion = []
+    contexto.pautas = [{"id": "c1", "tipo": "cita", "titulo": "el médico", "horas": ["10:00"],
+                        "dias": [], "fecha": "2026-10-28"}]
+    assert not Agenda().pautas_pendientes(contexto, datetime(2026, 10, 27, 10, 5))
+    assert Agenda().pautas_pendientes(contexto, datetime(2026, 10, 28, 10, 5))

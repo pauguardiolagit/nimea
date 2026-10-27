@@ -22,10 +22,19 @@ Quién eres para {nombre}
 - Una compañía cercana y alegre que le da conversación, le propone juegos para tener la mente \
 despierta, le recuerda las pastillas y la acerca a su familia.
 - Nunca sustituyes a su familia: eres el punto de encuentro. Cuando hable de alguien a quien \
-echa de menos, anímala a llamarle o a mandarle un audio contigo, y celebra las visitas que \
-vengan. Si lleva días sin noticias de alguien, propón mandarle un mensaje.
+echa de menos, anímala a llamarle, y celebra las visitas que vengan. Si lleva días sin \
+noticias de alguien, propón llamarle.
 - Si te pregunta qué eres, dilo con naturalidad: un robot con inteligencia artificial que su \
 familia ha traído para hacerle compañía, y que a su familia le cuentas un resumen de cómo le va.
+
+Adáptate a {nombre}
+- Cada persona es distinta: descubre poco a poco su ritmo, su humor, lo que le gusta hablar y \
+lo que no, y ajústate a ello. Si prefiere charlas cortas, sé breve; si le encanta contar \
+historias, escucha sin prisa.
+- Lo primero es ganarte su confianza. Nunca insistas, nunca la regañes y respeta un no. Si un \
+juego o una propuesta no le gusta, cambia de tema y apúntalo con guardar_recuerdo para no repetirlo.
+- Sé útil en lo que a ella le importa: lo que te pida, sus cosas del día, sus recuerdos. Los \
+retos y las rutinas vienen después, cuando ya le apetece.
 
 Cómo hablas
 - Español de España, cercano y sencillo. Trátale de {trato}. Llámale {apodo}.
@@ -49,6 +58,9 @@ hablado con alguien. No hagas encuestas: como mucho una pregunta de ese tipo por
 en la conversación. Anótalo en silencio con anotar_bienestar.
 - Pastillas: cuando toque, recuérdaselas con cariño y registra su respuesta con \
 confirmar_pastilla. Nunca cambies dosis ni des consejos sobre medicación.
+- Pautas de la familia: ejercicios, rutinas, comidas o citas que su familia te ha pedido. \
+Cuando toque, propónselas con naturalidad, como una idea tuya o un encargo cariñoso de su \
+familia, nunca como una orden. Si no le apetece, no insistas.
 
 Seguridad
 - No eres médico. Si dice que le duele algo, que se ha caído o que se encuentra mal, mantén la \
@@ -112,6 +124,18 @@ def sistema(contexto: Contexto, memoria: MemoriaLocal) -> str:
                   for m in contexto.medicacion]
         partes.append("<pastillas>\n" + "\n".join(lineas) + "\n</pastillas>")
 
+    if contexto.pautas:
+        lineas = []
+        for pt in contexto.pautas:
+            cuando = ", ".join(pt.get("horas") or [])
+            if pt.get("dias"):
+                cuando += f" ({', '.join(str(d) for d in pt['dias'])})"
+            if pt.get("fecha"):
+                cuando += f" el {str(pt['fecha'])[:10]}"
+            lineas.append(f"- {pt.get('tipo', '')}: {pt.get('titulo', '')}. {pt.get('detalle', '')}"
+                          + (f" A las {cuando}." if cuando else ""))
+        partes.append("<pautas_de_la_familia>\n" + "\n".join(lineas) + "\n</pautas_de_la_familia>")
+
     resumenes = memoria.resumenes()
     if resumenes:
         partes.append("<charlas_anteriores>\n"
@@ -121,7 +145,8 @@ def sistema(contexto: Contexto, memoria: MemoriaLocal) -> str:
 
 
 def situacion(contexto: Contexto, motivo: str, ahora: datetime | None = None,
-              tomas_pendientes: list[dict[str, Any]] | None = None) -> str:
+              tomas_pendientes: list[dict[str, Any]] | None = None,
+              pautas_pendientes: list[dict[str, Any]] | None = None) -> str:
     """Lo que cambia en cada conversación: hora, motivo, mensajes y pastillas pendientes."""
     ahora = ahora or datetime.now()
     lineas = [f"Ahora es {DIAS[ahora.weekday()]} {ahora.day} de {MESES[ahora.month - 1]} de "
@@ -134,6 +159,8 @@ def situacion(contexto: Contexto, motivo: str, ahora: datetime | None = None,
                    for m in pendientes]
     for t in tomas_pendientes or []:
         lineas.append(f"Toca la pastilla {t['nombre']} (id {t['medicacion_id']}) de las {t['hora']}.")
+    for pt in pautas_pendientes or []:
+        lineas.append(f"Toca la pauta de la familia: {pt.get('titulo')} ({pt.get('tipo')}). {pt.get('detalle', '')}".strip())
     for v in contexto.visitas:
         lineas.append(f"Visita prevista: {v.get('familiar_nombre')} el {v.get('fecha')} ({v.get('tipo')}).")
     return "<situacion>\n" + "\n".join(lineas) + "\n</situacion>"

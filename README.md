@@ -27,6 +27,7 @@ export OPENAI_API_KEY=...
 python -m nimea_robot.consola                    # Carmen te llama
 python -m nimea_robot.consola --motivo mensajes  # Nimea le cuenta que Lucía le ha escrito
 python -m nimea_robot.consola --motivo pastilla
+python -m nimea_robot.consola --motivo pauta     # le propone el paseo que pidió la familia
 python -m nimea_robot.consola --motor claude     # la misma charla con Claude (ANTHROPIC_API_KEY)
 ```
 

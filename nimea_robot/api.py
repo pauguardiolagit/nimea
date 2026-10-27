@@ -34,6 +34,7 @@ class Contexto:
     medicacion: list[dict[str, Any]] = field(default_factory=list)
     mensajes_pendientes: list[dict[str, Any]] = field(default_factory=list)
     visitas: list[dict[str, Any]] = field(default_factory=list)
+    pautas: list[dict[str, Any]] = field(default_factory=list)
     ajustes: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -45,6 +46,7 @@ class Contexto:
             medicacion=datos.get("medicacion") or [],
             mensajes_pendientes=datos.get("mensajes_pendientes") or [],
             visitas=datos.get("visitas") or [],
+            pautas=datos.get("pautas") or [],
             ajustes=datos.get("ajustes") or {},
         )
 
