@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -33,6 +34,7 @@ class Contexto:
     medicacion: list[dict[str, Any]] = field(default_factory=list)
     mensajes_pendientes: list[dict[str, Any]] = field(default_factory=list)
     visitas: list[dict[str, Any]] = field(default_factory=list)
+    pautas: list[dict[str, Any]] = field(default_factory=list)
     ajustes: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -44,6 +46,7 @@ class Contexto:
             medicacion=datos.get("medicacion") or [],
             mensajes_pendientes=datos.get("mensajes_pendientes") or [],
             visitas=datos.get("visitas") or [],
+            pautas=datos.get("pautas") or [],
             ajustes=datos.get("ajustes") or {},
         )
 
@@ -77,7 +80,12 @@ class ApiNimea:
         return bool(self.url and self.token)
 
     def _cabeceras(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.token}", "X-Nimea-Version": VERSION}
+        # Base44 reserva Authorization para la sesión de usuario: el token del robot va aparte.
+        return {"X-Nimea-Token": self.token, "X-Nimea-Version": VERSION}
+
+    def _enviar(self, ruta: str, datos: dict[str, Any]) -> httpx.Response:
+        funcion, datos = _funcion_base44(ruta, datos)
+        return self._http.post(f"{self.url}/{funcion}", headers=self._cabeceras(), json=datos)
 
     # Lectura
 
@@ -85,7 +93,7 @@ class ApiNimea:
         """Descarga el contexto; si falla, usa la última copia guardada."""
         if self.configurada:
             try:
-                r = self._http.get(f"{self.url}/robot/contexto", headers=self._cabeceras())
+                r = self._enviar("/robot/contexto", {})
                 r.raise_for_status()
                 datos = r.json()
                 self._cache.write_text(json.dumps(datos, ensure_ascii=False), encoding="utf-8")
@@ -144,12 +152,8 @@ class ApiNimea:
         if not self.configurada:
             return False
         try:
-            r = self._http.post(
-                f"{self.url}/robot/estado",
-                headers=self._cabeceras(),
-                json={"estado": estado, "conexion": conexion, "version": VERSION,
-                      "pendientes": self.pendientes()},
-            )
+            r = self._enviar("/robot/estado", {"estado": estado, "conexion": conexion, "version": VERSION,
+                                               "pendientes": self.pendientes()})
             r.raise_for_status()
         except httpx.HTTPError as e:
             log.info("Sin conexión con la app (%s)", e)
@@ -183,8 +187,7 @@ class ApiNimea:
             for linea in lineas:
                 item = json.loads(linea)
                 try:
-                    r = self._http.request(item["metodo"], f"{self.url}{item['ruta']}",
-                                           headers=self._cabeceras(), json=item["datos"])
+                    r = self._enviar(item["ruta"], item["datos"])
                     if r.status_code >= 500:
                         break
                     if r.status_code >= 400:
@@ -199,6 +202,25 @@ class ApiNimea:
             else:
                 self._cola.unlink(missing_ok=True)
             return enviadas
+
+
+# Cada ruta del contrato es una función de Base44, servida en <NIMEA_API_URL>/<función>.
+FUNCIONES = {
+    "/robot/contexto": "robotContexto",
+    "/robot/sesion": "robotSesion",
+    "/robot/toma": "robotToma",
+    "/robot/mensaje": "robotMensaje",
+    "/robot/aviso": "robotAviso",
+    "/robot/estado": "robotEstado",
+}
+_ENTREGADO = re.compile(r"^/robot/mensaje/([^/]+)/entregado$")
+
+
+def _funcion_base44(ruta: str, datos: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Traduce una ruta del contrato a su función. El id de /mensaje/{id}/entregado pasa al cuerpo."""
+    if m := _ENTREGADO.match(ruta):
+        return "robotEntregado", {**datos, "id": m.group(1)}
+    return FUNCIONES[ruta], datos
 
 
 def _ahora_iso() -> str:

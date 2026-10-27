@@ -1,4 +1,4 @@
-"""Cuándo debe Nimea tomar la iniciativa: pastillas, mensajes nuevos y buenos días."""
+"""Cuándo debe Nimea tomar la iniciativa: pastillas, pautas de la familia, mensajes nuevos y buenos días."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ MARGEN_TOMA = timedelta(minutes=50)  # después, la app avisa a la familia
 ENTRE_RECORDATORIOS = timedelta(minutes=20)
 ENTRE_AVISOS_MENSAJE = timedelta(minutes=45)
 MAX_INTENTOS = 3
+MARGEN_PAUTA = timedelta(minutes=30)  # una pauta se propone una vez, dentro de este margen
 
 
 def _hhmm(texto: str) -> hora:
@@ -28,9 +29,10 @@ def en_descanso(ahora: datetime, desde: str, hasta: str) -> bool:
 
 @dataclass
 class Motivo:
-    tipo: str  # pastilla | mensajes | buenos_dias
+    tipo: str  # pastilla | pauta | mensajes | buenos_dias
     texto: str
     tomas: list[dict] = field(default_factory=list)
+    pautas: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -39,6 +41,7 @@ class Agenda:
     _recordado: dict[tuple, tuple[datetime, int]] = field(default_factory=dict)
     _resueltas: set[tuple] = field(default_factory=set)
     _mensajes_avisados: dict[str, tuple[datetime, int]] = field(default_factory=dict)
+    _pautas_propuestas: set[tuple] = field(default_factory=set)
     _buenos_dias: str = ""
 
     def resolver_toma(self, medicacion_id: str, hora_prevista: str, dia: str) -> None:
@@ -50,7 +53,7 @@ class Agenda:
         pendientes = []
         for med in ctx.medicacion:
             dias = med.get("dias") or []
-            if dias and ahora.weekday() not in dias:
+            if dias and not _toca_hoy(dias, ahora):
                 continue
             for h in med.get("horas") or []:
                 prevista = datetime.combine(ahora.date(), _hhmm(h))
@@ -59,6 +62,24 @@ class Agenda:
                     continue
                 pendientes.append({"medicacion_id": med.get("id"), "nombre": med.get("nombre"),
                                    "hora": h, "clave": clave})
+        return pendientes
+
+    def pautas_pendientes(self, ctx: Contexto, ahora: datetime) -> list[dict]:
+        """Ejercicios, rutinas, comidas y citas que la familia ha pedido para este momento."""
+        dia = ahora.strftime("%Y-%m-%d")
+        pendientes = []
+        for pauta in ctx.pautas:
+            if pauta.get("fecha") and str(pauta["fecha"])[:10] != dia:
+                continue
+            dias = pauta.get("dias") or []
+            if dias and not _toca_hoy(dias, ahora):
+                continue
+            for h in pauta.get("horas") or []:
+                prevista = datetime.combine(ahora.date(), _hhmm(h))
+                clave = (pauta.get("id"), h, dia)
+                if clave in self._pautas_propuestas or not (prevista <= ahora <= prevista + MARGEN_PAUTA):
+                    continue
+                pendientes.append({**pauta, "hora": h, "clave": clave})
         return pendientes
 
     def siguiente(self, ctx: Contexto, ahora: datetime) -> Motivo | None:
@@ -73,6 +94,13 @@ class Agenda:
                 self._marcar(self._recordado, t["clave"], ahora)
             nombres = " y ".join(t["nombre"] for t in tomas)
             return Motivo("pastilla", f"Es la hora de {nombres}. Recuérdaselo con cariño.", tomas)
+
+        pautas = self.pautas_pendientes(ctx, ahora)
+        if pautas:
+            self._pautas_propuestas.update(p["clave"] for p in pautas)
+            titulos = " y ".join(p.get("titulo") or p.get("tipo", "") for p in pautas)
+            return Motivo("pauta", f"Es el momento de {titulos}, que te pidió su familia. "
+                                   "Propónselo con naturalidad, sin insistir si no le apetece.", pautas=pautas)
 
         nuevos = [m for m in ctx.mensajes_pendientes if not m.get("escuchado")
                   and self._toca(self._mensajes_avisados, m.get("id"), ahora, ENTRE_AVISOS_MENSAJE)]
@@ -103,3 +131,12 @@ class Agenda:
     def _marcar(registro: dict, clave, ahora: datetime) -> None:
         _, intentos = registro.get(clave, (ahora, 0))
         registro[clave] = (ahora, intentos + 1)
+
+
+_DIAS = ["lun", "mar", "mie", "jue", "vie", "sab", "dom"]
+
+
+def _toca_hoy(dias: list, ahora: datetime) -> bool:
+    """Acepta los días como en la app ("lun".."dom") o como números (0 = lunes)."""
+    hoy = ahora.weekday()
+    return hoy in dias or _DIAS[hoy] in dias

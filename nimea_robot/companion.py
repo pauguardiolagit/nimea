@@ -195,7 +195,8 @@ class Nimea:
             self.cerebro.nueva_conversacion(prompts.sistema(self.contexto, self.memoria))
 
         tomas = self.agenda.tomas_pendientes(self.contexto, datetime.now())
-        entrada = prompts.situacion(self.contexto, motivo.texto, tomas_pendientes=tomas) + "\n"
+        entrada = prompts.situacion(self.contexto, motivo.texto, tomas_pendientes=tomas,
+                                    pautas_pendientes=motivo.pautas) + "\n"
         if primera_frase:
             entrada += f"Ella acaba de decir: {primera_frase}"
         elif motivo.tipo == "llamada":

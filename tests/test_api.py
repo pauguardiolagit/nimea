@@ -6,12 +6,13 @@ from nimea_robot.api import ApiNimea
 
 
 def _api(tmp_path, manejador):
-    return ApiNimea("https://app.test", "tok", tmp_path, httpx.Client(transport=httpx.MockTransport(manejador)))
+    return ApiNimea("https://app.test/functions", "tok", tmp_path, httpx.Client(transport=httpx.MockTransport(manejador)))
 
 
 def test_contexto_y_cache(tmp_path):
     def ok(req):
-        assert req.headers["Authorization"] == "Bearer tok"
+        assert req.headers["X-Nimea-Token"] == "tok" and "Authorization" not in req.headers
+        assert req.method == "POST" and req.url.path == "/functions/robotContexto"
         return httpx.Response(200, json={"persona": {"nombre": "Carmen"}})
 
     assert _api(tmp_path, ok).contexto().nombre == "Carmen"
@@ -40,7 +41,7 @@ def test_cola_sin_conexion_y_reenvio(tmp_path):
     hay_red["v"] = True
     assert api.latido("en_linea")
     rutas = [r[0] for r in recibidos]
-    assert rutas == ["/robot/estado", "/robot/toma", "/robot/mensaje"]
+    assert rutas == ["/functions/robotEstado", "/functions/robotToma", "/functions/robotMensaje"]
     assert recibidos[2][1]["responde_a"] == "msg1"
     assert api.pendientes() == 0
 
@@ -49,3 +50,14 @@ def test_error_4xx_se_descarta(tmp_path):
     api = _api(tmp_path, lambda req: httpx.Response(422, text="malo"))
     api.aviso("prueba", "hola")
     assert api.pendientes() == 0
+
+
+def test_entregado_lleva_el_id_en_el_cuerpo(tmp_path):
+    recibidos = []
+
+    def manejador(req):
+        recibidos.append((req.url.path, json.loads(req.content)))
+        return httpx.Response(200, json={"ok": True})
+
+    _api(tmp_path, manejador).mensaje_entregado("msg7", "escuchado")
+    assert recibidos == [("/functions/robotEntregado", {"estado": "escuchado", "id": "msg7"})]

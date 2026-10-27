@@ -3,6 +3,7 @@ las herramientas y la conexión con la app.
 
     python -m nimea_robot.consola                  # OpenAI, con los datos de demostración (Carmen)
     python -m nimea_robot.consola --motor claude   # con Claude
+    python -m nimea_robot.consola --motivo pauta   # le propone el paseo que pidió la familia
     python -m nimea_robot.consola --app            # con los datos reales de la app
 """
 
@@ -57,7 +58,7 @@ class ApiDemo(ApiNimea):
 def main() -> None:
     parser = argparse.ArgumentParser(description="Nimea en modo texto")
     parser.add_argument("--app", action="store_true", help="usar los datos reales de la app")
-    parser.add_argument("--motivo", default="llamada", choices=["llamada", "pastilla", "mensajes", "buenos_dias"])
+    parser.add_argument("--motivo", default="llamada", choices=["llamada", "pastilla", "pauta", "mensajes", "buenos_dias"])
     parser.add_argument("--motor", choices=["openai", "claude"], help="cerebro (por defecto, el de la configuración)")
     parser.add_argument("-v", action="store_true", help="ver los registros internos")
     args = parser.parse_args()
@@ -84,13 +85,15 @@ def main() -> None:
     textos = {
         "llamada": "Te ha llamado por tu nombre.",
         "pastilla": "Es la hora de una pastilla. Recuérdaselo con cariño.",
+        "pauta": "Es el momento de una pauta que te pidió su familia. Propónsela con naturalidad.",
         "mensajes": "Han llegado mensajes de la familia. Cuéntaselo con ilusión.",
         "buenos_dias": "Es por la mañana: dale los buenos días.",
     }
     if args.motivo == "pastilla" and contexto.medicacion:
         med = contexto.medicacion[0]
         tomas = [{"medicacion_id": med["id"], "nombre": med["nombre"], "hora": (med.get("horas") or ["09:00"])[0]}]
-    entrada = prompts.situacion(contexto, textos[args.motivo], datetime.now(), tomas) + "\n"
+    pautas = contexto.pautas[:1] if args.motivo == "pauta" else []
+    entrada = prompts.situacion(contexto, textos[args.motivo], datetime.now(), tomas, pautas) + "\n"
     entrada += ("Ella te acaba de llamar. Salúdala." if args.motivo == "llamada"
                 else "Empiezas tú la conversación: llámala por su nombre con suavidad.")
 
