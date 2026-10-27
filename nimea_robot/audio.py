@@ -27,6 +27,12 @@ class Audio(Protocol):
     def descartar_entrada(self) -> None:
         """Tira lo acumulado en el micrófono (por ejemplo, el eco de lo que ha dicho Nimea)."""
 
+    def empujar(self, pcm: np.ndarray) -> float:
+        """Manda audio al altavoz sin esperar. Devuelve su duración en segundos."""
+
+    def cortar(self) -> None:
+        """Calla en seco lo que esté sonando (cuando la interrumpen)."""
+
 
 class AudioReachy:
     """Micrófonos y altavoz del Reachy Mini a través de su SDK."""
@@ -46,17 +52,27 @@ class AudioReachy:
         return remuestrear(a_mono(bloque), self.fs_in, FS)
 
     def reproducir(self, pcm: np.ndarray) -> None:
-        if len(pcm) == 0:
-            return
-        datos = np.clip(remuestrear(pcm, FS, self.fs_out) * self.volumen, -1.0, 1.0)
-        trozo = self.fs_out // 5
         inicio = time.monotonic()
-        for i in range(0, len(datos), trozo):
-            self.media.push_audio_sample(datos[i:i + trozo].astype(np.float32))
+        duracion = self.empujar(pcm)
         # push_audio_sample no bloquea: esperamos a que suene entero.
-        restante = len(datos) / self.fs_out - (time.monotonic() - inicio)
+        restante = duracion - (time.monotonic() - inicio)
         if restante > 0:
             time.sleep(restante + 0.1)
+
+    def empujar(self, pcm: np.ndarray) -> float:
+        if len(pcm) == 0:
+            return 0.0
+        datos = np.clip(remuestrear(pcm, FS, self.fs_out) * self.volumen, -1.0, 1.0)
+        trozo = self.fs_out // 5
+        for i in range(0, len(datos), trozo):
+            self.media.push_audio_sample(datos[i:i + trozo].astype(np.float32))
+        return len(datos) / self.fs_out
+
+    def cortar(self) -> None:
+        try:
+            self.media.audio.clear_player()
+        except Exception:
+            log.debug("No se pudo cortar el audio")
 
     def descartar_entrada(self) -> None:
         while self.media.get_audio_sample() is not None:

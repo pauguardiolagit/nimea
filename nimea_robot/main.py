@@ -28,18 +28,20 @@ class NimeaApp(ReachyMiniApp):
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
         cfg = Config.desde_entorno()
         audio = AudioReachy(reachy_mini, volumen=cfg.volumen)
+        # Transcripción: para grabar las respuestas a la familia (y la charla con Claude).
         transcriptor = stt.crear(cfg)
         # Para oír "Nimea" sin modelo propio usamos Whisper en local, nunca la nube.
         stt_palabra = None
         if not cfg.modelo_palabra:
             stt_palabra = transcriptor if cfg.stt == "whisper" else stt.TranscriptorWhisper("base")
+        claude = cfg.motor == "claude"
         nimea = Nimea(
             cfg,
             audio=audio,
             stt=transcriptor,
-            voz=tts.crear(cfg),
+            voz=tts.crear(cfg) if claude else None,
             api=ApiNimea(cfg.api_url, cfg.api_token, cfg.carpeta_datos),
-            cerebro=Cerebro(cfg),
+            cerebro=Cerebro(cfg) if claude else None,
             gestos=Gestos(reachy_mini),
             foto=reachy_mini.media.get_frame_jpeg,
             stt_palabra=stt_palabra,

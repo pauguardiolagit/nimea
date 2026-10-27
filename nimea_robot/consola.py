@@ -1,8 +1,9 @@
 """Habla con Nimea escribiendo, sin robot. Sirve para probar su forma de conversar,
 las herramientas y la conexión con la app.
 
-    python -m nimea_robot.consola            # con los datos de demostración (Carmen)
-    python -m nimea_robot.consola --app      # con los datos reales de la app
+    python -m nimea_robot.consola                  # OpenAI, con los datos de demostración (Carmen)
+    python -m nimea_robot.consola --motor claude   # con Claude
+    python -m nimea_robot.consola --app            # con los datos reales de la app
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from .api import ApiNimea, Contexto
 from .bienestar import Sesion
 from .brain import Cerebro
 from .config import Config
+from .realtime import herramientas_openai
 from .tools import Herramientas, MemoriaLocal
 
 DEMO = Path(__file__).with_name("demo.json")
@@ -56,11 +58,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Nimea en modo texto")
     parser.add_argument("--app", action="store_true", help="usar los datos reales de la app")
     parser.add_argument("--motivo", default="llamada", choices=["llamada", "pastilla", "mensajes", "buenos_dias"])
+    parser.add_argument("--motor", choices=["openai", "claude"], help="cerebro (por defecto, el de la configuración)")
     parser.add_argument("-v", action="store_true", help="ver los registros internos")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO if args.v else logging.WARNING)
 
     cfg = Config.desde_entorno()
+    if args.motor:
+        cfg.motor = args.motor
     if args.app:
         api = ApiNimea(cfg.api_url, cfg.api_token, cfg.carpeta_datos)
         contexto = api.contexto()
@@ -73,8 +78,7 @@ def main() -> None:
 
     sesion = Sesion()
     herramientas = Herramientas(api, contexto, sesion, CuerpoConsola(), memoria)
-    cerebro = Cerebro(cfg)
-    cerebro.nueva_conversacion(prompts.sistema(contexto, memoria))
+    sistema = prompts.sistema(contexto, memoria)
 
     tomas = []
     textos = {
@@ -92,18 +96,70 @@ def main() -> None:
 
     print("Nimea en modo texto. Escribe como si fueras la persona mayor. Ctrl+C para salir.\n")
     try:
+        if cfg.motor == "openai":
+            _charla_openai(cfg, sistema, entrada, herramientas)
+        else:
+            _charla_claude(cfg, sistema, entrada, herramientas, sesion)
+    except (KeyboardInterrupt, EOFError):
+        print()
+    print("\nResumen para la familia:")
+    print(json.dumps(sesion.para_api(), ensure_ascii=False, indent=2))
+
+
+def _charla_claude(cfg: Config, sistema: str, entrada: str, herramientas: Herramientas, sesion: Sesion) -> None:
+    cerebro = Cerebro(cfg)
+    cerebro.nueva_conversacion(sistema)
+    try:
         while True:
             cerebro.turno(entrada, herramientas, lambda frase: print(f"Nimea: {frase}"))
             if herramientas.terminada:
                 break
             entrada = input("\nTú: ").strip() or "(silencio)"
-    except (KeyboardInterrupt, EOFError):
-        print()
-    if not sesion.resumen:
-        datos = cerebro.resumir() or {}
-        sesion.resumen = datos.get("resumen", "")
-    print("\nResumen para la familia:")
-    print(json.dumps(sesion.para_api(), ensure_ascii=False, indent=2))
+    finally:
+        if not sesion.resumen:
+            sesion.resumen = (cerebro.resumir() or {}).get("resumen", "")
+
+
+def _charla_openai(cfg: Config, sistema: str, entrada: str, herramientas: Herramientas) -> None:
+    """La misma sesión Realtime que usa el robot, pero con texto en vez de voz."""
+    from openai import OpenAI
+
+    cliente = OpenAI(api_key=cfg.openai_api_key or None)
+    with cliente.realtime.connect(model=cfg.openai_modelo_realtime) as conn:
+        conn.session.update(session={
+            "type": "realtime", "instructions": sistema, "output_modalities": ["text"],
+            "tools": herramientas_openai(), "tool_choice": "auto",
+        })
+        while True:
+            conn.conversation.item.create(item={"type": "message", "role": "user",
+                                                "content": [{"type": "input_text", "text": entrada}]})
+            conn.response.create()
+            for evento in conn:
+                if evento.type == "response.output_text.done":
+                    print(f"Nimea: {evento.text}")
+                elif evento.type == "response.function_call_arguments.done":
+                    try:
+                        args = json.loads(evento.arguments or "{}")
+                    except ValueError:
+                        args = None  # ejecutar() lo devuelve como error de entrada
+                    contenido, error = herramientas.ejecutar(evento.name, args)
+                    if isinstance(contenido, list):
+                        contenido = "(imagen)"
+                    conn.conversation.item.create(item={
+                        "type": "function_call_output", "call_id": evento.call_id,
+                        "output": ("ERROR: " if error else "") + str(contenido)})
+                    print(f"  [herramienta {evento.name}]")
+                elif evento.type == "error":
+                    print(f"  [error: {evento.error.message}]")
+                elif evento.type == "response.done":
+                    salidas = evento.response.output or []
+                    if any(getattr(o, "type", "") == "function_call" for o in salidas):
+                        conn.response.create()  # que siga hablando tras usar herramientas
+                        continue
+                    break
+            if herramientas.terminada:
+                return
+            entrada = input("\nTú: ").strip() or "(silencio)"
 
 
 if __name__ == "__main__":

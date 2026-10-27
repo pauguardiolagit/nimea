@@ -216,13 +216,13 @@ class Herramientas:
         if not m:
             return "Ese mensaje no existe o ya se entregó."
         autor = m.get("autor_nombre", "tu familia")
-        if m.get("tipo") == "audio" and m.get("audio_url"):
-            self.cuerpo.reproducir(decodificar(self.api.descargar(m["audio_url"])))
-        else:
-            self.cuerpo.decir(m.get("texto", ""))
         self.api.mensaje_entregado(m["id"], "escuchado")
         m["escuchado"] = True
-        return f"Mensaje de {autor} reproducido. Contenido: {m.get('texto') or '(audio)'}"
+        if m.get("tipo") == "audio" and m.get("audio_url"):
+            self.cuerpo.reproducir(decodificar(self.api.descargar(m["audio_url"])))
+            return f"Audio de {autor} reproducido." + (f" Decía: {m['texto']}" if m.get("texto") else "")
+        # Retos y textos los lee Nimea con su propia voz.
+        return f"Léeselo ahora en voz alta, tal cual, diciendo que es de {autor}: «{m.get('texto', '')}»"
 
     def _grabar_respuesta(self, a: dict[str, Any]) -> str:
         m = self.contexto.mensaje(a["mensaje_id"])

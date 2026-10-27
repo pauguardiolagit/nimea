@@ -18,6 +18,7 @@ from .api import ApiNimea, Contexto
 from .audio import Audio, pitido
 from .bienestar import Sesion
 from .brain import Cerebro
+from .realtime import ConversacionVoz
 from .stt import Transcriptor
 from .tools import Herramientas, MemoriaLocal
 from .tts import Sintetizador
@@ -110,18 +111,20 @@ class Nimea:
         cfg,
         audio: Audio,
         stt: Transcriptor,
-        voz: Sintetizador,
+        voz: Sintetizador | None,
         api: ApiNimea,
-        cerebro: Cerebro,
+        cerebro: Cerebro | None,
         gestos,
         foto: Callable[[], bytes | None] = lambda: None,
         stt_palabra: Transcriptor | None = None,
+        cliente_openai=None,
     ) -> None:
         self.cfg = cfg
         self.audio = audio
         self.stt = stt
         self.api = api
         self.cerebro = cerebro
+        self.cliente_openai = cliente_openai
         self.gestos = gestos
         self.hablante = Hablante(voz, audio)
         self.cuerpo = CuerpoNimea(self.hablante, audio, stt, gestos.hacer, foto)
@@ -188,7 +191,8 @@ class Nimea:
         herramientas = Herramientas(self.api, self.contexto, sesion, self.cuerpo, self.memoria)
         hoy = datetime.now().strftime("%Y-%m-%d")
         herramientas.al_resolver_toma = lambda med, h: self.agenda.resolver_toma(med, h, hoy)
-        self.cerebro.nueva_conversacion(prompts.sistema(self.contexto, self.memoria))
+        if self.cerebro:
+            self.cerebro.nueva_conversacion(prompts.sistema(self.contexto, self.memoria))
 
         tomas = self.agenda.tomas_pendientes(self.contexto, datetime.now())
         entrada = prompts.situacion(self.contexto, motivo.texto, tomas_pendientes=tomas) + "\n"
@@ -199,36 +203,58 @@ class Nimea:
         else:
             entrada += "Empiezas tú la conversación: llámala por su nombre con suavidad."
 
-        ha_hablado = bool(primera_frase)
+        ha_hablado = False
         try:
-            while not parar.is_set():
-                self.cerebro.turno(entrada, herramientas, self.hablante.decir)
-                self.hablante.esperar()
-                if herramientas.terminada:
-                    break
-                self.audio.descartar_entrada()  # fuera el eco de su propia voz
-                self.gestos.escuchar()
-                espera = 20.0 if not ha_hablado and motivo.tipo != "llamada" else self.cfg.segundos_silencio_para_dormir
-                pcm = escuchar_frase(self.audio.leer, DetectorVoz(), espera_max=espera, parar=parar.is_set)
-                if pcm is None:
-                    if ha_hablado:
-                        self.hablante.decir("Me quedo por aquí tranquila. Si me necesitas, llámame.")
-                        self.hablante.esperar()
-                    break
-                texto = self.stt.transcribir(pcm)
-                if not texto:
-                    entrada = "(No se ha entendido lo que ha dicho; pídele con cariño que lo repita.)"
-                    continue
-                log.info("Ella: %s", texto)
-                ha_hablado = True
-                sesion.segundos_habla += len(pcm) / 16000
-                entrada = texto
+            if self.cfg.motor == "openai":
+                ha_hablado = self._conversar_openai(entrada, herramientas, sesion, motivo, parar,
+                                                    bool(primera_frase))
+            else:
+                ha_hablado = self._conversar_claude(entrada, herramientas, sesion, motivo, parar,
+                                                    bool(primera_frase))
         finally:
             self._cerrar(sesion, herramientas, ha_hablado)
 
+    def _conversar_openai(self, entrada: str, herramientas: Herramientas, sesion: Sesion,
+                          motivo: Motivo, parar: threading.Event, ha_hablado: bool) -> bool:
+        voz = ConversacionVoz(self.cfg, self.audio, herramientas, self.cliente_openai)
+        voz.ejecutar(
+            prompts.sistema(self.contexto, self.memoria), entrada, parar,
+            espera_silencio=self.cfg.segundos_silencio_para_dormir,
+            espera_primera=self.cfg.segundos_silencio_para_dormir if motivo.tipo == "llamada" else 20.0,
+            ya_ha_hablado=ha_hablado,
+        )
+        sesion.segundos_habla += voz.segundos_habla
+        return voz.ha_hablado
+
+    def _conversar_claude(self, entrada: str, herramientas: Herramientas, sesion: Sesion,
+                          motivo: Motivo, parar: threading.Event, ha_hablado: bool) -> bool:
+        while not parar.is_set():
+            self.cerebro.turno(entrada, herramientas, self.hablante.decir)
+            self.hablante.esperar()
+            if herramientas.terminada:
+                break
+            self.audio.descartar_entrada()  # fuera el eco de su propia voz
+            self.gestos.escuchar()
+            espera = 20.0 if not ha_hablado and motivo.tipo != "llamada" else self.cfg.segundos_silencio_para_dormir
+            pcm = escuchar_frase(self.audio.leer, DetectorVoz(), espera_max=espera, parar=parar.is_set)
+            if pcm is None:
+                if ha_hablado:
+                    self.hablante.decir("Me quedo por aquí tranquila. Si me necesitas, llámame.")
+                    self.hablante.esperar()
+                break
+            texto = self.stt.transcribir(pcm)
+            if not texto:
+                entrada = "(No se ha entendido lo que ha dicho; pídele con cariño que lo repita.)"
+                continue
+            log.info("Ella: %s", texto)
+            ha_hablado = True
+            sesion.segundos_habla += len(pcm) / 16000
+            entrada = texto
+        return ha_hablado
+
     def _cerrar(self, sesion: Sesion, herramientas: Herramientas, ha_hablado: bool) -> None:
         sesion.fin = time.time()
-        if ha_hablado and not sesion.resumen:
+        if ha_hablado and not sesion.resumen and self.cerebro:
             datos = self.cerebro.resumir() or {}
             sesion.resumen = datos.get("resumen", "")
             sesion.frase_destacada = datos.get("frase_destacada", "")

@@ -61,7 +61,7 @@ def test_conversacion_completa(tmp_path, contexto):
         Stream([], _final([fin], "tool_use")),
         Stream(["Me alegro mucho. Hasta luego."], _final([NS(type="text", text="Me alegro mucho. Hasta luego.")])),
     ])
-    cfg = Config(carpeta_datos=tmp_path)
+    cfg = Config(carpeta_datos=tmp_path, motor="claude")
     api = ApiFalsa(tmp_path)
     gestos = Gestos()
     stt = NS(transcribir=lambda pcm: "Muy bien, han florecido todos")

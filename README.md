@@ -7,7 +7,7 @@ Nimea conversa por voz, propone juegos para tener la mente despierta, recuerda l
 ## Qué hace la versión 0.1
 
 - Se despierta al oír **"Nimea"** y se vuelve a dormir con la cabeza baja tras un rato de silencio.
-- Conversa con la IA (Claude) en español de España, con frases cortas, y empieza a hablar en cuanto tiene la primera frase lista.
+- Conversa **voz a voz** con la API Realtime de OpenAI: contesta en menos de un segundo, con una voz natural, en español de España. También puede usar Claude como cerebro (`NIMEA_MOTOR=claude`).
 - **Toma la iniciativa**: recuerda las pastillas (con hasta tres intentos), avisa cuando llegan mensajes de la familia y da los buenos días.
 - **Mensajes de la familia**: reproduce audios, lee retos y textos, graba la respuesta en voz y se la manda al móvil de quien la envió. También puede mandar un audio nuevo a cualquier familiar.
 - **Bienestar**: anota en silencio alegría, mente despierta, movimiento, alimentación, conexión, descanso y rutina, sin encuestas.
@@ -23,13 +23,14 @@ Para ver cómo conversa y qué enviaría a la app, basta con un ordenador:
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
-export ANTHROPIC_API_KEY=...
+export OPENAI_API_KEY=...
 python -m nimea_robot.consola                    # Carmen te llama
 python -m nimea_robot.consola --motivo mensajes  # Nimea le cuenta que Lucía le ha escrito
 python -m nimea_robot.consola --motivo pastilla
+python -m nimea_robot.consola --motor claude     # la misma charla con Claude (ANTHROPIC_API_KEY)
 ```
 
-Escribes como si fueras Carmen (datos de demostración en `nimea_robot/demo.json`). Al final se muestra el resumen de la sesión tal y como llegaría a la app.
+Escribes como si fueras Carmen (datos de demostración en `nimea_robot/demo.json`). Es la misma sesión que usa el robot, pero en texto. Al final se muestra el resumen de la sesión tal y como llegaría a la app.
 
 ## Instalarla en el Reachy Mini
 
@@ -48,9 +49,10 @@ Hace falta `ffmpeg` para reproducir los audios de la familia que no sean WAV.
 
 ### Voz
 
-- Por defecto, voz y transcripción con ElevenLabs (`ELEVENLABS_API_KEY` y la voz elegida en `ELEVENLABS_VOZ`).
-- Voz de OpenAI, la de la familia del modo voz de ChatGPT: `NIMEA_TTS=openai` con `OPENAI_API_KEY` (voz por defecto `coral`, se cambia con `OPENAI_VOZ`). Claude sigue decidiendo qué se dice.
-- Alternativa local, sin nube: `NIMEA_STT=whisper` y `NIMEA_TTS=piper` con un modelo de voz en español.
+- Por defecto, la voz sale directamente del modelo Realtime de OpenAI (voz `marin`, se cambia con `OPENAI_VOZ`). No hay transcripción ni síntesis por medio.
+- Las respuestas que la persona graba para la familia se transcriben con OpenAI (`gpt-4o-mini-transcribe`).
+- Mientras Nimea habla, el micro no se envía, para que no se oiga a sí misma. Si el micro del robot cancela bien el eco, `NIMEA_INTERRUMPIR=1` permite cortarla al hablar.
+- Con `NIMEA_MOTOR=claude`, la voz es aparte: OpenAI, ElevenLabs o Piper en local (`NIMEA_TTS`).
 
 ### Palabra de activación
 
@@ -58,10 +60,9 @@ Mientras no tengamos un modelo propio, Nimea detecta su nombre transcribiendo en
 
 ## La IA
 
-- Modelo `claude-opus-5-5` con esfuerzo `low` en la conversación, para que conteste rápido. Se cambia con `NIMEA_MODELO` y `NIMEA_ESFUERZO`.
-- Respuesta en streaming, cortada en frases para empezar a hablar enseguida.
-- Respaldo automático activado (`fallbacks: "default"`): si el modelo rechazara una petición, la API la repite con el modelo de respaldo. Se desactiva con `NIMEA_FALLBACKS=0`.
-- Las instrucciones de Nimea están en `nimea_robot/prompts.py`. Las herramientas que puede usar, en `nimea_robot/tools.py`.
+- **Por defecto, OpenAI Realtime** (`gpt-realtime-2.1-mini`, se cambia con `OPENAI_MODELO_REALTIME`): cerebro y voz en una sola conexión, la opción más natural y barata para el día a día. Detección de turno semántica y paciente, porque las personas mayores hacen pausas al hablar.
+- **Alternativa, Claude** (`NIMEA_MOTOR=claude`): `claude-opus-5-5` con esfuerzo `low`, respuesta en streaming cortada en frases y respaldo automático ante rechazos (`fallbacks: "default"`).
+- Los dos usan las mismas instrucciones (`nimea_robot/prompts.py`) y las mismas herramientas (`nimea_robot/tools.py`).
 
 ## Estructura
 
@@ -69,7 +70,8 @@ Mientras no tengamos un modelo propio, Nimea detecta su nombre transcribiendo en
 |---|---|
 | `main.py` | App del Reachy Mini: monta todas las piezas |
 | `companion.py` | Bucle principal: reposo, palabra de activación, conversación, iniciativa |
-| `brain.py` | Conversación con la IA y uso de herramientas |
+| `realtime.py` | Conversación voz a voz con OpenAI Realtime |
+| `brain.py` | Conversación con Claude (alternativa) |
 | `prompts.py` | Personalidad e instrucciones de Nimea |
 | `tools.py` | Herramientas: mensajes, retos, pastillas, bienestar, gestos, cámara, memoria |
 | `agenda.py` | Cuándo despertarse sola: pastillas, mensajes, buenos días, descanso |

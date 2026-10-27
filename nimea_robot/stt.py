@@ -53,7 +53,31 @@ class TranscriptorWhisper:
         return " ".join(s.text.strip() for s in segmentos).strip()
 
 
+class TranscriptorOpenAI:
+    URL = "https://api.openai.com/v1/audio/transcriptions"
+
+    def __init__(self, api_key: str, modelo: str = "gpt-4o-mini-transcribe",
+                 http: httpx.Client | None = None) -> None:
+        if not api_key:
+            raise ValueError("Falta OPENAI_API_KEY")
+        self.api_key = api_key
+        self.modelo = modelo
+        self.http = http or httpx.Client(timeout=30.0)
+
+    def transcribir(self, audio: np.ndarray) -> str:
+        r = self.http.post(
+            self.URL,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            data={"model": self.modelo, "language": "es"},
+            files={"file": ("frase.wav", a_wav(audio), "audio/wav")},
+        )
+        r.raise_for_status()
+        return (r.json().get("text") or "").strip()
+
+
 def crear(cfg) -> Transcriptor:
+    if cfg.stt == "openai":
+        return TranscriptorOpenAI(cfg.openai_api_key)
     if cfg.stt == "whisper":
         return TranscriptorWhisper(cfg.whisper_modelo)
     return TranscriptorElevenLabs(cfg.elevenlabs_api_key)

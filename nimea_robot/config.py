@@ -31,7 +31,12 @@ class Config:
     api_url: str = ""
     api_token: str = ""
 
-    # IA
+    # IA. "openai": conversación voz a voz con la API Realtime de OpenAI (por defecto).
+    # "claude": Claude como cerebro, con voz y transcripción aparte.
+    motor: str = "openai"
+    openai_modelo_realtime: str = "gpt-realtime-2.1-mini"
+    # Si se puede interrumpir a Nimea mientras habla. Solo con un micro que cancele bien el eco.
+    interrumpir: bool = False
     modelo: str = "claude-opus-5-5"
     # Esfuerzo de razonamiento en la charla. "low" para que conteste rápido,
     # que en una conversación por voz cada segundo de silencio se nota.
@@ -39,13 +44,13 @@ class Config:
     fallbacks: bool = True
 
     # Voz
-    stt: str = "elevenlabs"  # elevenlabs | whisper
-    tts: str = "elevenlabs"  # elevenlabs | openai | piper
+    stt: str = "openai"  # openai | elevenlabs | whisper
+    tts: str = "openai"  # openai | elevenlabs | piper
     elevenlabs_api_key: str = ""
     elevenlabs_voz: str = ""
     elevenlabs_modelo_tts: str = "eleven_multilingual_v2"
     openai_api_key: str = ""
-    openai_voz: str = "coral"
+    openai_voz: str = "marin"
     openai_modelo_tts: str = "gpt-4o-mini-tts"
     whisper_modelo: str = "small"
     piper_modelo: str = ""
@@ -72,6 +77,9 @@ class Config:
         return cls(
             api_url=e("NIMEA_API_URL", "").rstrip("/"),
             api_token=e("NIMEA_API_TOKEN", ""),
+            motor=e("NIMEA_MOTOR", cls.motor),
+            openai_modelo_realtime=e("OPENAI_MODELO_REALTIME", cls.openai_modelo_realtime),
+            interrumpir=_bool(e("NIMEA_INTERRUMPIR"), False),
             modelo=e("NIMEA_MODELO", cls.modelo),
             esfuerzo=e("NIMEA_ESFUERZO", cls.esfuerzo),
             fallbacks=_bool(e("NIMEA_FALLBACKS"), True),

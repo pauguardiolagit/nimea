@@ -50,8 +50,8 @@ def test_validacion():
 
 def test_flujo_reto_de_la_nieta(tmp_path, contexto):
     h, api = _herr(tmp_path, contexto)
-    _, err = h.ejecutar("reproducir_mensaje", {"mensaje_id": "msg1"})
-    assert not err and h.cuerpo.dicho  # el reto se lee en voz alta
+    texto, err = h.ejecutar("reproducir_mensaje", {"mensaje_id": "msg1"})
+    assert not err and "Léeselo" in texto and "canción" in texto  # el reto lo lee Nimea
     texto, err = h.ejecutar("grabar_respuesta", {"mensaje_id": "msg1"})
     assert not err and "Suspiros" in texto
     rutas = [r for r, _ in api.enviado]
