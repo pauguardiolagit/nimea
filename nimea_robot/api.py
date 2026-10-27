@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -21,6 +22,28 @@ import httpx
 log = logging.getLogger("nimea.api")
 
 VERSION = "0.1.0"
+
+# En Base44 cada endpoint del robot es una función servida en /functions/<nombre>.
+# El resto del código usa las rutas del contrato (/robot/...); aquí se traducen.
+FUNCIONES = {
+    "/robot/contexto": "robotContexto",
+    "/robot/sesion": "robotSesion",
+    "/robot/toma": "robotToma",
+    "/robot/mensaje": "robotMensaje",
+    "/robot/aviso": "robotAviso",
+    "/robot/estado": "robotEstado",
+}
+_ENTREGADO = re.compile(r"^/robot/mensaje/([^/]+)/entregado$")
+
+
+def ruta_base44(ruta: str, datos: dict[str, Any] | None = None) -> tuple[str, dict[str, Any] | None]:
+    """Traduce una ruta del contrato a la función de Base44 (el id de entregado va en el cuerpo)."""
+    m = _ENTREGADO.match(ruta)
+    if m:
+        return "/functions/robotEntregado", {**(datos or {}), "id": m.group(1)}
+    if ruta in FUNCIONES:
+        return f"/functions/{FUNCIONES[ruta]}", datos
+    return ruta, datos
 
 
 @dataclass
@@ -77,7 +100,9 @@ class ApiNimea:
         return bool(self.url and self.token)
 
     def _cabeceras(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.token}", "X-Nimea-Version": VERSION}
+        # X-Nimea-Token por si la plataforma reserva Authorization para sus propios usuarios.
+        return {"Authorization": f"Bearer {self.token}", "X-Nimea-Token": self.token,
+                "X-Nimea-Version": VERSION}
 
     # Lectura
 
@@ -85,7 +110,8 @@ class ApiNimea:
         """Descarga el contexto; si falla, usa la última copia guardada."""
         if self.configurada:
             try:
-                r = self._http.get(f"{self.url}/robot/contexto", headers=self._cabeceras())
+                r = self._http.get(f"{self.url}{ruta_base44('/robot/contexto')[0]}",
+                                   headers=self._cabeceras())
                 r.raise_for_status()
                 datos = r.json()
                 self._cache.write_text(json.dumps(datos, ensure_ascii=False), encoding="utf-8")
@@ -145,7 +171,7 @@ class ApiNimea:
             return False
         try:
             r = self._http.post(
-                f"{self.url}/robot/estado",
+                f"{self.url}{ruta_base44('/robot/estado')[0]}",
                 headers=self._cabeceras(),
                 json={"estado": estado, "conexion": conexion, "version": VERSION,
                       "pendientes": self.pendientes()},
@@ -182,9 +208,10 @@ class ApiNimea:
             enviadas = 0
             for linea in lineas:
                 item = json.loads(linea)
+                ruta, datos = ruta_base44(item["ruta"], item["datos"])
                 try:
-                    r = self._http.request(item["metodo"], f"{self.url}{item['ruta']}",
-                                           headers=self._cabeceras(), json=item["datos"])
+                    r = self._http.request(item["metodo"], f"{self.url}{ruta}",
+                                           headers=self._cabeceras(), json=datos)
                     if r.status_code >= 500:
                         break
                     if r.status_code >= 400:

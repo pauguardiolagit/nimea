@@ -2,7 +2,9 @@
 
 El robot habla con el backend de la app de la familia (Base44). Este contrato coincide con el prompt v2 de la app.
 
-Todas las llamadas llevan la cabecera `Authorization: Bearer <token del dispositivo>` y van en JSON. `NIMEA_API_URL` es la URL base, sin barra final.
+Todas las llamadas llevan las cabeceras `Authorization: Bearer <token del dispositivo>` y `X-Nimea-Token: <token>` y van en JSON. `NIMEA_API_URL` es la URL de la app publicada, sin barra final.
+
+En Base44 cada endpoint es una función en `/functions/<nombre>`: `/robot/contexto` es `robotContexto`, `/robot/sesion` es `robotSesion`, `/robot/toma` es `robotToma`, `/robot/mensaje` es `robotMensaje`, `/robot/aviso` es `robotAviso`, `/robot/estado` es `robotEstado` y `/robot/mensaje/{id}/entregado` es `robotEntregado` con el `id` en el cuerpo. El cliente (`nimea_robot/api.py`) hace la traducción.
 
 ## GET /robot/contexto
 
@@ -13,7 +15,7 @@ Lo que el robot necesita saber. Se descarga al arrancar, cada 10 minutos y antes
   "persona": {"id": "", "nombre": "", "apodo": "", "fecha_nacimiento": "", "ciudad": "",
               "aficiones": [], "temas_favoritos": [], "temas_evitar": [], "notas": "",
               "horario": {"levantarse": "08:30", "comidas": ["14:00", "21:00"], "siesta": "16:00", "dormir": "23:00"}},
-  "familiares": [{"id": "", "nombre": "", "parentesco": "", "alias_voz": []}],
+  "familiares": [{"id": "", "nombre": "", "parentesco": "", "alias_voz": [], "telefono": ""}],
   "recuerdos": [{"id": "", "titulo": "", "descripcion": "", "tipo": "", "fecha": ""}],
   "medicacion": [{"id": "", "nombre": "", "dosis": "", "horas": ["09:00"], "dias": [], "instrucciones": ""}],
   "mensajes_pendientes": [{"id": "", "autor_id": "", "autor_nombre": "", "tipo": "audio|reto|texto",
@@ -23,7 +25,7 @@ Lo que el robot necesita saber. Se descarga al arrancar, cada 10 minutos y antes
 }
 ```
 
-`dias` usa 0 para lunes y 6 para domingo; vacío significa todos los días. Opcional en `persona`: `trato` ("tú" o "usted").
+`dias` usa "lun", "mar", "mie", "jue", "vie", "sab", "dom" (el robot también acepta 0 a 6, con 0 = lunes); vacío significa todos los días. `telefono` es el número de WhatsApp del familiar, para que Nimea pueda llamarle. Opcional en `persona`: `trato` ("tú" o "usted").
 
 ## Envíos del robot
 

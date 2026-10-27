@@ -40,7 +40,7 @@ def test_cola_sin_conexion_y_reenvio(tmp_path):
     hay_red["v"] = True
     assert api.latido("en_linea")
     rutas = [r[0] for r in recibidos]
-    assert rutas == ["/robot/estado", "/robot/toma", "/robot/mensaje"]
+    assert rutas == ["/functions/robotEstado", "/functions/robotToma", "/functions/robotMensaje"]
     assert recibidos[2][1]["responde_a"] == "msg1"
     assert api.pendientes() == 0
 
@@ -49,3 +49,14 @@ def test_error_4xx_se_descarta(tmp_path):
     api = _api(tmp_path, lambda req: httpx.Response(422, text="malo"))
     api.aviso("prueba", "hola")
     assert api.pendientes() == 0
+
+
+def test_entregado_lleva_el_id_en_el_cuerpo(tmp_path):
+    recibidos = []
+
+    def manejador(req):
+        recibidos.append((req.url.path, req.headers.get("X-Nimea-Token"), json.loads(req.content)))
+        return httpx.Response(200, json={})
+
+    _api(tmp_path, manejador).mensaje_entregado("msg7", "escuchado")
+    assert recibidos == [("/functions/robotEntregado", "tok", {"estado": "escuchado", "id": "msg7"})]

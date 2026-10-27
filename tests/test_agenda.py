@@ -42,3 +42,12 @@ def test_buenos_dias_una_vez(contexto):
 
 def test_en_descanso_no_molesta(contexto):
     assert Agenda().siguiente(contexto, datetime(2026, 10, 27, 23, 30)) is None
+
+
+def test_dias_como_en_la_app(contexto):
+    # 2026-10-27 es martes
+    contexto.mensajes_pendientes = []
+    contexto.medicacion[0]["dias"] = ["mar"]
+    assert Agenda().tomas_pendientes(contexto, datetime(2026, 10, 27, 9, 5))
+    contexto.medicacion[0]["dias"] = ["lun", "mie"]
+    assert not Agenda().tomas_pendientes(contexto, datetime(2026, 10, 27, 9, 5))
