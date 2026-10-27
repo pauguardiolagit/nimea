@@ -27,7 +27,7 @@ Lo que el robot necesita saber. Se descarga al arrancar, cada 10 minutos y antes
   "persona": {"id": "", "nombre": "", "apodo": "", "fecha_nacimiento": "", "ciudad": "",
               "aficiones": [], "temas_favoritos": [], "temas_evitar": [], "notas": "",
               "horario": {"levantarse": "08:30", "comidas": ["14:00", "21:00"], "siesta": "16:00", "dormir": "23:00"}},
-  "familiares": [{"id": "", "nombre": "", "parentesco": "", "alias_voz": []}],
+  "familiares": [{"id": "", "nombre": "", "parentesco": "", "alias_voz": [], "telefono": ""}],
   "recuerdos": [{"id": "", "titulo": "", "descripcion": "", "tipo": "", "fecha": ""}],
   "medicacion": [{"id": "", "nombre": "", "dosis": "", "horas": ["09:00"], "dias": [], "instrucciones": ""}],
   "mensajes_pendientes": [{"id": "", "autor_id": "", "autor_nombre": "", "tipo": "audio|reto|texto",
@@ -37,7 +37,7 @@ Lo que el robot necesita saber. Se descarga al arrancar, cada 10 minutos y antes
 }
 ```
 
-`dias` usa 0 para lunes y 6 para domingo; vacío significa todos los días. Opcional en `persona`: `trato` ("tú" o "usted").
+`dias` usa "lun", "mar", "mie", "jue", "vie", "sab", "dom" (el robot también acepta 0 a 6, con 0 = lunes); vacío significa todos los días. `telefono` es el número de WhatsApp del familiar, para que en el futuro Nimea pueda llamarle desde el Android de la peana. Opcional en `persona`: `trato` ("tú" o "usted").
 
 ## Envíos del robot
 

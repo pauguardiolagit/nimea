@@ -50,7 +50,7 @@ class Agenda:
         pendientes = []
         for med in ctx.medicacion:
             dias = med.get("dias") or []
-            if dias and ahora.weekday() not in dias:
+            if dias and not _toca_hoy(dias, ahora):
                 continue
             for h in med.get("horas") or []:
                 prevista = datetime.combine(ahora.date(), _hhmm(h))
@@ -103,3 +103,12 @@ class Agenda:
     def _marcar(registro: dict, clave, ahora: datetime) -> None:
         _, intentos = registro.get(clave, (ahora, 0))
         registro[clave] = (ahora, intentos + 1)
+
+
+_DIAS = ["lun", "mar", "mie", "jue", "vie", "sab", "dom"]
+
+
+def _toca_hoy(dias: list, ahora: datetime) -> bool:
+    """Acepta los días como en la app ("lun".."dom") o como números (0 = lunes)."""
+    hoy = ahora.weekday()
+    return hoy in dias or _DIAS[hoy] in dias
