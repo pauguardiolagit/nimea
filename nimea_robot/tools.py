@@ -271,7 +271,7 @@ class Herramientas:
         return "Guardado."
 
     def _avisar_familia(self, a: dict[str, Any]) -> str:
-        self.api.aviso("peticion_persona_mayor", a["texto"], a["nivel"])
+        self.api.aviso("peticion", a["texto"], a["nivel"])
         return "Aviso enviado a la familia."
 
     # Cuerpo
