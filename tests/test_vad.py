@@ -36,3 +36,19 @@ def test_wav_ida_y_vuelta():
 
 def test_remuestrear():
     assert len(remuestrear(np.zeros(48000, dtype=np.float32), 48000, 16000)) == 16000
+
+
+def test_voz_openai_remuestrea_a_16k():
+    import httpx
+
+    from nimea_robot.tts import VozOpenAI
+
+    pcm24k = (np.zeros(24000, dtype="<i2")).tobytes()
+
+    def manejador(req):
+        cuerpo = __import__("json").loads(req.content)
+        assert req.headers["Authorization"] == "Bearer k" and cuerpo["response_format"] == "pcm"
+        return httpx.Response(200, content=pcm24k)
+
+    voz = VozOpenAI("k", "coral", "gpt-4o-mini-tts", httpx.Client(transport=httpx.MockTransport(manejador)))
+    assert len(voz.sintetizar("Hola, Carmen")) == FS

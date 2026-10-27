@@ -49,6 +49,7 @@ Hace falta `ffmpeg` para reproducir los audios de la familia que no sean WAV.
 ### Voz
 
 - Por defecto, voz y transcripción con ElevenLabs (`ELEVENLABS_API_KEY` y la voz elegida en `ELEVENLABS_VOZ`).
+- Voz de OpenAI, la de la familia del modo voz de ChatGPT: `NIMEA_TTS=openai` con `OPENAI_API_KEY` (voz por defecto `coral`, se cambia con `OPENAI_VOZ`). Claude sigue decidiendo qué se dice.
 - Alternativa local, sin nube: `NIMEA_STT=whisper` y `NIMEA_TTS=piper` con un modelo de voz en español.
 
 ### Palabra de activación

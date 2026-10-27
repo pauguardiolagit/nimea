@@ -40,10 +40,13 @@ class Config:
 
     # Voz
     stt: str = "elevenlabs"  # elevenlabs | whisper
-    tts: str = "elevenlabs"  # elevenlabs | piper
+    tts: str = "elevenlabs"  # elevenlabs | openai | piper
     elevenlabs_api_key: str = ""
     elevenlabs_voz: str = ""
     elevenlabs_modelo_tts: str = "eleven_multilingual_v2"
+    openai_api_key: str = ""
+    openai_voz: str = "coral"
+    openai_modelo_tts: str = "gpt-4o-mini-tts"
     whisper_modelo: str = "small"
     piper_modelo: str = ""
 
@@ -77,6 +80,9 @@ class Config:
             elevenlabs_api_key=e("ELEVENLABS_API_KEY", ""),
             elevenlabs_voz=e("ELEVENLABS_VOZ", ""),
             elevenlabs_modelo_tts=e("ELEVENLABS_MODELO_TTS", cls.elevenlabs_modelo_tts),
+            openai_api_key=e("OPENAI_API_KEY", ""),
+            openai_voz=e("OPENAI_VOZ", cls.openai_voz),
+            openai_modelo_tts=e("OPENAI_MODELO_TTS", cls.openai_modelo_tts),
             whisper_modelo=e("NIMEA_WHISPER_MODELO", cls.whisper_modelo),
             piper_modelo=e("NIMEA_PIPER_MODELO", ""),
             palabra=e("NIMEA_PALABRA", cls.palabra).lower(),

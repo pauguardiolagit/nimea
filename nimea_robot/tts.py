@@ -67,7 +67,44 @@ class VozPiper:
         return remuestrear(de_pcm16(salida.stdout), self.fs, FS)
 
 
+class VozOpenAI:
+    """Voz de OpenAI (la misma familia de voces que el modo voz de ChatGPT).
+
+    Solo pone la voz: lo que dice lo sigue decidiendo Claude.
+    """
+
+    URL = "https://api.openai.com/v1/audio/speech"
+    FS_OPENAI = 24_000  # el formato "pcm" de OpenAI es 16 bits, mono, 24 kHz
+
+    def __init__(self, api_key: str, voz: str, modelo: str, http: httpx.Client | None = None) -> None:
+        if not api_key:
+            raise ValueError("Falta OPENAI_API_KEY")
+        self.api_key = api_key
+        self.voz = voz
+        self.modelo = modelo
+        self.http = http or httpx.Client(timeout=30.0)
+
+    def sintetizar(self, texto: str) -> np.ndarray:
+        r = self.http.post(
+            self.URL,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={
+                "model": self.modelo,
+                "voice": self.voz,
+                "input": texto,
+                "response_format": "pcm",
+                "instructions": ("Habla en español de España, con calidez y cercanía, algo más "
+                                 "despacio de lo normal y vocalizando bien, como quien charla con "
+                                 "una persona mayor a la que aprecia."),
+            },
+        )
+        r.raise_for_status()
+        return remuestrear(de_pcm16(r.content), self.FS_OPENAI, FS)
+
+
 def crear(cfg) -> Sintetizador:
     if cfg.tts == "piper":
         return VozPiper(cfg.piper_modelo)
+    if cfg.tts == "openai":
+        return VozOpenAI(cfg.openai_api_key, cfg.openai_voz, cfg.openai_modelo_tts)
     return VozElevenLabs(cfg.elevenlabs_api_key, cfg.elevenlabs_voz, cfg.elevenlabs_modelo_tts)
