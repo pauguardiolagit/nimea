@@ -1,0 +1,36 @@
+{
+  "persona": {
+    "id": "p1",
+    "nombre": "Carmen",
+    "apodo": "Carmen",
+    "fecha_nacimiento": "1945-03-12",
+    "ciudad": "Murcia",
+    "aficiones": ["jardinería", "la copla", "cocinar"],
+    "temas_favoritos": ["sus geranios", "Rocío Jurado", "el arroz con conejo"],
+    "temas_evitar": [],
+    "notas": "Oye algo peor del oído izquierdo. Le gusta que le hablen despacio.",
+    "horario": {"levantarse": "08:30", "comidas": ["14:00", "21:00"], "siesta": "16:00", "dormir": "23:00"}
+  },
+  "familiares": [
+    {"id": "f1", "nombre": "Francisco", "parentesco": "hijo", "alias_voz": ["mi hijo Francisco", "Fran"]},
+    {"id": "f2", "nombre": "Marta", "parentesco": "hija", "alias_voz": ["mi Marta", "la niña"]},
+    {"id": "f3", "nombre": "Lucía", "parentesco": "nieta", "alias_voz": ["la nieta", "Lucía"]}
+  ],
+  "recuerdos": [
+    {"id": "r1", "titulo": "Su boda", "descripcion": "Se casó con Antonio en 1966 en la iglesia de San Miguel de Murcia.", "tipo": "fecha importante"},
+    {"id": "r2", "titulo": "Los geranios", "descripcion": "Tiene la terraza llena de geranios rojos que cuida cada mañana.", "tipo": "anécdota"},
+    {"id": "r3", "titulo": "Lucía en Madrid", "descripcion": "Su nieta Lucía estudia Medicina en Madrid y vuelve los fines de semana.", "tipo": "persona"}
+  ],
+  "medicacion": [
+    {"id": "m1", "nombre": "la pastilla de la tensión", "dosis": "una", "horas": ["09:00"], "dias": [], "instrucciones": "con el desayuno"},
+    {"id": "m2", "nombre": "el omeprazol", "dosis": "uno", "horas": ["21:00"], "dias": [], "instrucciones": "antes de cenar"}
+  ],
+  "mensajes_pendientes": [
+    {"id": "msg1", "autor_id": "f3", "autor_nombre": "Lucía", "tipo": "reto", "texto": "Abuela, ¿cómo se llamaba la canción que bailabas con el abuelo en las fiestas?", "audio_url": "", "fecha": "2026-10-27T10:00:00+0100"},
+    {"id": "msg2", "autor_id": "f1", "autor_nombre": "Francisco", "tipo": "texto", "texto": "Mamá, el domingo vamos a comer contigo. ¿Nos haces tu arroz?", "audio_url": "", "fecha": "2026-10-27T11:30:00+0100"}
+  ],
+  "visitas": [
+    {"familiar_nombre": "Marta", "fecha": "sábado", "tipo": "visita", "mensaje": "Te llevo a ver a la tía Pepa."}
+  ],
+  "ajustes": {"volumen": 0.9, "horario_descanso": "22:30-08:30"}
+}
