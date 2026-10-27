@@ -4,7 +4,7 @@ El robot habla con el backend de la app de la familia (Base44). Este contrato co
 
 Cada ruta es una función de Base44 y se llama con `POST <NIMEA_API_URL>/<función>`, con cuerpo JSON y la cabecera `X-Nimea-Token: <token del dispositivo>` (empieza por `nim_`). No se usa `Authorization`, que Base44 reserva para la sesión de un usuario.
 
-`NIMEA_API_URL` es la base de las funciones, sin barra final: `https://app.base44.com/api/apps/6ae01f8e1a5dbeb851837e78/functions`.
+`NIMEA_API_URL` es la base de las funciones en el subdominio de la app, sin barra final: `https://nimea.base44.app/functions`. Desde `app.base44.com` Base44 devuelve 403.
 
 | Ruta del contrato | Función de Base44 |
 |---|---|
